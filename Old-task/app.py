@@ -140,8 +140,6 @@ def GetdateFromRow(row):
             "WMTBY_Count": row[13],
             "WMTBY_Amount": float(row[14]),
             "Month": row[15],
-            #"QuarterOfYear": row[16],
-            #"WeekOfYear": row[17],
             "ActiveCampaingCount": row[18],
             "CampaignCreditCount": row[19],
             "OpenCampaingCount": row[20],
