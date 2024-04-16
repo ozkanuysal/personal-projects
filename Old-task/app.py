@@ -166,7 +166,6 @@ def GetDailyMoneyTransfer(startdate):
     row = cursor.fetchone()
     data = ''
     while row:
-        # WriteFile(row)
         data = GetdateFromRow(row)
         row = cursor.fetchone()
     dbClass.CloseConnection()
