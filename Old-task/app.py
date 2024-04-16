@@ -20,8 +20,6 @@ app = Flask(__name__,template_folder='templates')
 def readConfig():
     _file = None
     with open ('/app/config/appsettings.json') as json_file:
-    # local
-    #with open ('./config/appsettings.json') as json_file:
         _file = json.load(json_file)
     return _file
 
