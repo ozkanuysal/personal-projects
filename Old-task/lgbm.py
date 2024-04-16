@@ -18,24 +18,9 @@ n_iter=50
 credits = pd.read_csv('2020_Eylul.csv', sep=',')
 features = credits.copy()
 features = features.drop([
-                          #'DayOfWeek', 
-                          #'HeavyVehicleCount',
-                          #'HeavyVehicleExit',
-                         #'DayOfMonth',
-                          #'Month',
+
                           'QuarterOfYear',
-                          #'IsEndOfWeek',
-                          #'IsEndOfMonth',
-                          #'ActiveCampaingCount', 
-                          #'CampaignCreditCount', 
-                          #'OpenCampaingCount',
-                          #'CloseCampaingCount',
-                         # 'ExchangeSellRate',  
-                         # 'LuxBrandCount', 
-                        #'LuxBrandExit',
-                        #'LuxBrandCount',
                         'WeekOfYear'
-                        #'CurrencyDate'
                         ], axis=1)
 #print(features.head(5))
 features['T'] =  pd.to_datetime(features['T'],infer_datetime_format=True)
@@ -93,12 +78,8 @@ y_pred = randomModel.predict(test_data)
 print(); print(metrics.r2_score(test_targets, y_pred))
 print(); print(metrics.mean_squared_log_error(test_targets, y_pred))
 
-#plt.figure(figsize=(10,10))
-#sns.regplot(test_targets, y_pred, fit_reg=True, scatter_kws={"s": 100})
-
 print(); print(test_targets)
 print(); print(y_pred.astype(int))
-
 
 #Feature importance for top 50 predictors
 predictors = [x for x in features.columns]
@@ -109,11 +90,3 @@ feat_imp = feat_imp[0:50]
 plt.rcParams['figure.figsize'] = 18, 5
 feat_imp.plot(kind='bar', title='Feature Importance')
 plt.ylabel('Feature Importance Score')
-#plt.show()
-
-#plotImp(clf, X_test)
-#plotImp(randomModel, x_test)
-
-
-#joblib.dump(randomModel, 'LGBMRegressor_Random_opt.pkl')
-#gbm_pickle = joblib.load('LGBMRegressor_Random_opt.pkl')
