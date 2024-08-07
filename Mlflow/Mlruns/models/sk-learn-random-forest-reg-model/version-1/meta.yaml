@@ -1,0 +1,12 @@
+creation_timestamp: 1719657002133
+current_stage: None
+description: null
+last_updated_timestamp: 1719657002133
+name: sk-learn-random-forest-reg-model
+run_id: 3857c7f517c24bdea9c054e65209ff17
+run_link: null
+source: file:///home/ozkan/Desktop/New%20Folder/mlruns/0/3857c7f517c24bdea9c054e65209ff17/artifacts/sklearn-model
+status: READY
+status_message: null
+user_id: null
+version: 1
