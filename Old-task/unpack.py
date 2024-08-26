@@ -26,16 +26,10 @@ parser.add_argument("--ids", required=False, default="0", type=str, help="which 
 args = parser.parse_args()
 
 def list2range(s):
-    """
-    list2range('1,2,5-7,10')
-    [1, 2, 5, 6, 7, 10]
-    # from https://stackoverflow.com/a/6405711/9201239
-    """
     return sum(((list(range(*[int(j) + k for k,j in enumerate(i.split('-'))]))
          if '-' in i else [int(i)]) for i in s.split(',')), [])
 
 def unpack(args, idx, row):
-    #pprint(row)
     path = f"{args.target_path}/{idx}"
     Path(path).mkdir(parents=True, exist_ok=True)
     for i, img in enumerate(row["images"]):
@@ -54,8 +48,6 @@ def unpack(args, idx, row):
                 fh.write(txt)
 
 def dump_example_shapes(idx, row):
-    """ dump the row stats """
-
     imgs = defaultdict(int)
     for img in row["images"]:
         if img is None:
@@ -78,24 +70,9 @@ def dump_example_shapes(idx, row):
     print(f"- img: {imgs_summary}")
     print(f"- txt: {txts_summary}")
 
-
-
-
 ids_range = list2range(args.ids)
-
 ds = load_from_disk(args.dataset_name_or_path)
-#rows = ds[ids_range]
-
-
-#pprint(rows[1])
-
-
 for idx, id in enumerate(ids_range):
     unpack(args, id, ds[id])
     dump_example_shapes(id, ds[id])
-    #sys.exit()
-
-ds.info.write_to_directory(args.target_path)
-
-
-# replicate one record many times
+    ds.info.write_to_directory(args.target_path)
