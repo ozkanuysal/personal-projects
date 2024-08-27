@@ -22,14 +22,14 @@ features = features.drop([
                           'QuarterOfYear',
                         'WeekOfYear'
                         ], axis=1)
-#print(features.head(5))
+
 features['T'] =  pd.to_datetime(features['T'],infer_datetime_format=True)
 split_date = pd.datetime(2017,7,3)
 test_split_date = pd.datetime(2020,9,5)
 
 features = features.loc[features['T'] >= split_date]
 
-#print(features.describe())
+
 x_training = features.loc[features['T'] <= test_split_date]
 x_test = features.loc[features['T'] > test_split_date]
 
@@ -42,20 +42,13 @@ test_targets = x_test.iloc[:,-1].values
 num_folds=3
 kf = KFold(shuffle=True, n_splits=num_folds, random_state=random_state)
 
-# Number of trees in random forest
+
 n_estimators = [int(x) for x in np.linspace(start = 10, stop = 1000, num = 5)]
-# Number of features to consider at every split
 max_features = ['auto', 'sqrt']
-# Maximum number of levels in tree
 max_depth = [int(x) for x in np.linspace(4, 32, num = 2)]
-#max_depth.append(None)
-# Minimum number of samples required to split a node
 min_samples_split = [2, 5, 10]
-# Minimum number of samples required at each leaf node
 min_samples_leaf = [1, 2, 4, 8]
-# Method of selecting samples for training each tree
 bootstrap = [True, False]
-# Create the random grid
 random_grid = {'n_estimators': n_estimators,
                'max_features': max_features,
                'max_depth': max_depth,
@@ -67,21 +60,21 @@ random_grid = {'n_estimators': n_estimators,
 rf = LGBMRegressor()
 randomModel = RandomizedSearchCV(estimator = rf, param_distributions = random_grid, n_iter = 100, cv = 5, verbose=1, random_state=42, n_jobs = -1)
 
-# Fit the random search model
+
 randomModel.fit(train_data,train_targets)
 print("BEST PARAMETERS: " + str(randomModel.best_params_))
 print("BEST CV SCORE: " + str(randomModel.best_score_))
 
 y_pred = randomModel.predict(test_data)
 
-# summarize the fit of the model
+
 print(); print(metrics.r2_score(test_targets, y_pred))
 print(); print(metrics.mean_squared_log_error(test_targets, y_pred))
 
 print(); print(test_targets)
 print(); print(y_pred.astype(int))
 
-#Feature importance for top 50 predictors
+
 predictors = [x for x in features.columns]
 predictors.remove('T')
 predictors.remove('Amount')
