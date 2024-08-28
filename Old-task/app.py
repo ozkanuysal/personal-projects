@@ -112,6 +112,25 @@ def ExpireDayPredictionData():
             })
 
 
+@app.route('/uploadCSV', methods=['POST'])
+def uploadCSV():
+    try:
+        if 'file' not in request.files:
+            return jsonify({"error": "No file part in the request"}), 400
+        
+        file = request.files['file']
+        
+        if file.filename == '':
+            return jsonify({"error": "No selected file"}), 400
+        
+        if file and file.filename.endswith('.csv'):
+            df = pd.read_csv(file)
+            return df.to_json(orient='records')
+        else:
+            return jsonify({"error": "File is not a CSV"}), 400
+    except Exception as e:
+        return jsonify({"trace": traceback.format_exc()}), 500
+
 
 def CalculateDiffPersentaga(actual, predicted):
     return ((float(predicted) - float(actual)) / float(actual) * 100)
@@ -229,6 +248,8 @@ def ReadFromVdfPrediction(date):
             if date in row:
                 result = row[1]
     return result
+
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0",port = 8080)
