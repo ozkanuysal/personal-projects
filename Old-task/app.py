@@ -1,4 +1,4 @@
-from flask import render_template, request, jsonify
+from flask import render_template, request, jsonify, Response  # Ensure Response is imported
 from flask import Flask
 import flask
 import numpy as np
@@ -13,17 +13,26 @@ import db
 import csv
 import yaml, os
 import json
+import logger_
+
+
 
 # App definition
 app = Flask(__name__,template_folder='templates')
 
-def readConfig():
-    _file = None
-    with open ('/app/config/appsettings.json') as json_file:
-        _file = json.load(json_file)
-    return _file
+def load_app_config(config_path='/app/config/appsettings.json'):
+    try:
+        with open(config_path, 'r') as json_file:
+            config = json.load(json_file)
+        return config
+    except FileNotFoundError:
+        print(f"Config file not found: {config_path}")
+        return {}
+    except json.JSONDecodeError:
+        print(f"Invalid JSON in config file: {config_path}")
+        return {}
 
-dbInfo = readConfig()
+dbInfo = load_app_config()
 
 lgbRegressor_Random = joblib.load('LGBMRegressor_Random_opt.pkl')
 
@@ -32,30 +41,40 @@ lgbRegressor_Random = joblib.load('LGBMRegressor_Random_opt.pkl')
 def welcome():
     return jsonify({"abount": "Hello Venus"})
 
+@app.route('/basic')
+def basic():
+    return jsonify({"message": "This is a basic route"})
+
+@app.route('/basic_action')
+def basic_action():
+    action_result = {"action": "basic action performed"}
+    return jsonify(action_result)
+
+
 @app.route('/HealthCheck')
 def HealthCheck():
     env = dbInfo["env"]
     return jsonify({"Environment": env})
-
 @app.route('/TodayPrediction', methods=['POST'])
-def TodayPrediction():
+def TodayPrediction() -> Response:
     try:
         json_ = request.json
+        if "T" not in json_:
+            return jsonify({"error": "Missing parameter 'T'"}), 400
+        
         daily_money_transfer = GetDailyMoneyTransferForToday(json_["T"])
         filled_train_data = FillTrainData(daily_money_transfer)
         trainset = pd.DataFrame([filled_train_data])
         prediction = lgbRegressor_Random.predict(trainset)
-        vdf_prediction = ReadFromVdfPrediction(json_["T"])
-        if not vdf_prediction:
-            vdf_prediction = '0'
-        return jsonify({  
-            "Beklenen Tutar : ": str(round(float(prediction[0])))
-        })
-
-    except:
+        vdf_prediction = ReadFromVdfPrediction(json_["T"]) or '0'
+        
         return jsonify({
-            "trace": traceback.format_exc()
-            }) 
+            "Beklenen Tutar": str(round(float(prediction[0])))
+        })
+    except Exception as e:
+        import traceback
+        logger_.error(f"Error in TodayPrediction with input {json_}: {str(e)}\n{traceback.format_exc()}")
+        return jsonify({"error": "Internal Server Error", "trace": str(e)}), 500
 
 @app.route('/TodayPredictionData', methods=['POST'])
 def TodayPredictionData():
