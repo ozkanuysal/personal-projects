@@ -1,10 +1,9 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Tuple, Optional, Union
+from typing import Tuple, Optional
 import json
 import numpy as np
 import matplotlib.pyplot as plt
-from tqdm import tqdm
 import ezkl
 
 @dataclass
@@ -45,7 +44,7 @@ class AccuracyVisualizer:
         if self.config.fig_save_path:
             plt.savefig(self.config.fig_save_path)
         plt.show()
-
+    
     def _plot_value_comparison(self, ax, real_values, comparison_values, high_sigma_points):
         ax.scatter(real_values, comparison_values, s=3)
         ax.scatter(
@@ -58,6 +57,40 @@ class AccuracyVisualizer:
         ax.set_ylabel('Proof Values')
         ax.set_title('Actual Value Comparison')
         ax.legend()
+    
+    def _plot_error_homoscedasticity(self, ax, real_values, se, high_sigma_points):
+        ax.scatter(real_values, se, s=3)
+        ax.scatter(
+            real_values[high_sigma_points], 
+            se[high_sigma_points], 
+            s=3, c='r', 
+            label=f'{self.config.sigma}σ points'
+        )
+        ax.set_xlabel('Original Values')
+        ax.set_ylabel('Standard Error')
+        ax.set_title('Error Homoscedasticity')
+        ax.legend()
+    
+    def _plot_error_histogram(self, ax, se, high_sigma_points, mse):
+        ax.hist(se, bins=50, alpha=0.7)
+        ax.hist(se[high_sigma_points], bins=50, alpha=0.7, color='r', label=f'{self.config.sigma}σ points')
+        ax.set_xlabel('Standard Error')
+        ax.set_ylabel('Frequency')
+        ax.set_title(f'Error Histogram (MSE: {mse:.4f})')
+        ax.legend()
+    
+    def _plot_summary_table(self, ax, statistics):
+        cell_text = [
+            ['MSE', f"{statistics['mse']:.4f}"],
+            ['Max Error', f"{statistics['max_error']:.4f}"],
+            ['Max Error %', f"{statistics['max_error_percent']:.2f}%"],
+            ['MSE %', f"{statistics['mse_percent']:.2f}%"]
+        ]
+        table = ax.table(cellText=cell_text, loc='center')
+        table.set_fontsize(14)
+        table.scale(1, 4)
+        ax.axis('off')
+        ax.set_title('Statistical Summary')
 
 class AccuracyAnalyzer:
     """Analyze accuracy between real and comparison values."""
@@ -146,6 +179,37 @@ class AccuracyAnalyzer:
             np.array(data['input_data']).flatten(),
             np.array(data['output_data']).flatten() if 'output_data' in data else None
         )
+    
+    def _calculate_statistics(
+        self,
+        real_values: np.ndarray,
+        comparison_values: np.ndarray
+    ) -> dict:
+        """Calculate statistical metrics."""
+        se = real_values - comparison_values
+        mse = np.mean(np.square(se))
+        max_error = np.max(np.abs(se))
+        max_error_percent = np.max(np.abs(se / real_values) * 100)
+        mse_percent = np.mean(np.square(se / real_values)) * 100
+        sigma = np.std(se)
+        high_sigma_points = np.abs(se) > self.config.sigma * sigma
+        
+        return {
+            'se': se,
+            'mse': mse,
+            'max_error': max_error,
+            'max_error_percent': max_error_percent,
+            'mse_percent': mse_percent,
+            'sigma': sigma,
+            'high_sigma_points': high_sigma_points
+        }
+
+    def _print_statistics(self, statistics: dict):
+        """Print statistical metrics."""
+        print(f"MSE: {statistics['mse']}")
+        print(f"Max Error: {statistics['max_error']}")
+        print(f"Max Error Percent: {statistics['max_error_percent']}%")
+        print(f"MSE Percent: {statistics['mse_percent']}%")
 
 def main():
     config = AccuracyConfig(
