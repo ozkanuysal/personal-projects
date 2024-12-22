@@ -13,14 +13,19 @@ class CallAPI(luigi.Task):
     def output(self):
         return luigi.LocalTarget(f"factorial_{self.num}_response.txt")
 
-    def run(self):
-        response = requests.get(f'http://localhost:8000/factorial/{self.num}')
+    def _append_response_to_file(self, data):
         old_content = ""
         if os.path.exists(self.output().path):
             with self.output().open('r') as f:
                 old_content = f.read()
         with self.output().open('w') as f:
-            f.write(old_content + str(response.json()) + '\n')
+            f.write(old_content + data + '\n')
+
+    def run(self):
+        response = requests.get(f'http://localhost:8000/factorial/{self.num}')
+        if response.ok:
+            self._append_response_to_file(str(response.json()))
+
 class AnotherTask(luigi.Task):
     num = luigi.IntParameter()
 
@@ -33,5 +38,4 @@ class AnotherTask(luigi.Task):
 
 
 if __name__ == '__main__':
-        luigi.build([CallAPI(num=5), AnotherTask(num=10)], local_scheduler=True)   
-        print('all task completed.')
+    luigi.run()
