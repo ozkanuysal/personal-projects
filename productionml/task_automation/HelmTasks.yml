@@ -1,0 +1,26 @@
+version: '3'
+
+tasks:
+  helm-package:
+    desc: helm package
+    aliases: [package]
+    cmds:
+      - cd {{.HELM_PATH}} && helm package .
+  
+  helm-upload:
+    desc: helm upload
+    aliases: [upload]
+    cmds:
+      - curl -u user:654321 http://localhost/repository/helmrepo/ --upload-file {{.HELM_PACKAGE}}-{{.HELM_PACKAGE_VERSION}}.tgz
+
+  helm-update:
+    desc: helm repo update
+    aliases: [update]
+    cmds:
+      - helm repo update
+
+  helm-upgrade:
+    desc: helm upgrade
+    aliases: [upgrade]
+    cmds:
+      - helm upgrade {{.HELM_PACKAGE}} demo/{{.HELM_PACKAGE}}
