@@ -1,0 +1,65 @@
+version: '3'
+
+tasks:
+  spg-edit:
+    desc: edit systemctl running spg.service
+    aliases: [edit]
+    cmds:
+      - sudo nano /etc/systemd/system/{{.SCTLSERVICE}}
+      - echo "{{.SCTLSERVICE}} edited successfully."
+    interactive: true
+
+  sdaemonr:
+    desc: systemctl-daemon reload command
+    aliases: [daemon]
+    cmds:
+      - systemctl daemon-reload
+      - systemctl restart {{.SCTLSERVICE}}
+      - echo "{{.SCTLSERVICE}} restarted successfully."
+  
+  sctlstatus:
+    desc: systemctl status {{.SCTLSERVICE}}
+    aliases: [status]
+    cmds:
+      - systemctl status {{.SCTLSERVICE}}
+
+  sctllogs:
+    desc: systemctl logs follow
+    aliases: [logs]
+    cmds:
+      - journalctl -u {{.SCTLSERVICE}} -f
+
+  cp-file-remote:
+    desc: copy local file to remote server
+    aliases: [cplr]
+    cmds:
+      - rsync -avzh {{.CP_LOCAL_FILE}} {{.CP_REMOTE_CON}}:{{.CP_REMOTE_FILE}}
+      - echo "{{.CP_LOCAL_FILE}} copied successfully."
+  
+  cp-remote-file:
+    desc: copy remote file to local server
+    aliases: [cprl]
+    cmds:
+      - rsync -avzh {{.CP_REMOTE_CON}}:{{.CP_REMOTE_FILE}} {{.CP_LOCAL_FILE}}
+      - echo "{{.CP_REMOTE_FILE}} copied remote to local successfully."
+  
+  port-pid:
+    desc: port number find pid 
+    aliases: [pp]
+    cmds:
+      - sudo ss -lptn 'sport = :{{.HOST_PORT}}'
+  
+  pid-process:
+    desc: pid find process
+    aliases: [pid]
+    cmds:
+      - sudo lsof -p {{.PID}}
+  
+  sshh:
+    desc: ssh keygen command
+    aliases: [ssh]
+    cmds:
+      - ssh-keygen
+      - ssh-copy-id -i {{.SSH_PATH}} {{.CP_REMOTE_CON}}
+    interactive: true
+  
