@@ -1,0 +1,98 @@
+version: '3'
+
+tasks:
+  delete-deployment:
+    desc: Delete kubernetes deployment
+    aliases: [delete]
+    cmds:
+      - kubectl delete -f {{.KUBERNETES_DEPLOYMENT_PATH}}
+  
+  apply-deployment:
+    desc: Apply kubernetes deployment
+    aliases: [apply]
+    cmds: 
+      - kubectl apply -f {{.KUBERNETES_DEPLOYMENT_PATH}}
+  
+  kubectl-debug-node:
+    desc: Run kubectl debug node
+    aliases: [debug-node]
+    cmds:
+      - kubectl debug node/{{.DEBUG_NODE}} -it --image={{.REGISTRY}}/{{.DEBUG_IMAGE_NAME}}:{{.DEBUG_TAG}}
+  
+  kubectl-debug-container:
+    desc: Run kubectl debug container
+    aliases: [debug-container]
+    cmds:
+      - kubectl debug -it \
+        --container=debug-container-10 \
+        --image={{.REGISTRY}}/{{.DEBUG_IMAGE_NAME}}:{{.DEBUG_TAG}} \
+        --target={{.CONTAINER_NAME}} \
+        {{.POD_NAME}}
+  
+  kubectl-cp:
+    desc: Copy file to kubernetes container
+    aliases: [cp]
+    cmds:
+      - kubectl cp {{.POD_NAME}}:{{.COPY_POD_VOLUME}} {{.COPY_VOLUME}}
+      - echo "File copied {{.POD_VOLUME}} successfully."
+  
+  create-secret-from-env:
+    desc: kubectl create secret from .env
+    cmds:
+      - kubectl create secret generic backend-env --from-env-file=/home/deneme/.env 
+
+  create-docker-registry-secret:
+    desc: create private docker registry 
+    cmds:
+      - kubectl create secret docker-registry regcred --docker-server={{.REGISTRY}} --docker-username=user --docker-password=123456
+
+  create-jasypt-secret:
+    desc: java application create jasypt
+    cmds:  
+      - kubectl create secret generic jasypt --from-literal=ENCRYPTOR_PASSWORD=123456? --dry-run
+  
+  coredns-rollout:
+    desc: coredns rolout command
+    cmds:
+      - kubectl rollout restart -n kube-system deployment/coredns
+  
+  kubectl-exec-it:
+    desc: kubectl exec containers
+    aliases: [exec]
+    cmds:
+      - POD_NAME=$(kubectl get pods | grep {{.GREP_POD_NAME}} | awk '{print $1}') && kubectl exec -it $POD_NAME -- /bin/bash
+
+  kubectl-delete-pod:
+    prompt: This is delete command... Do you want to continue?
+    desc: kubectl delete pod
+    aliases: [delete-pod]
+    cmds:
+      - POD_NAME=$(kubectl get pods | grep {{.GREP_POD_NAME}} | awk '{print $1}') && kubectl delete pod $POD_NAME
+      - echo "{{.POD_NAME}} deleted pod successfully."
+  
+  kubectl-logs:
+    desc: kubectl logs pod
+    aliases: [logs]
+    cmds:
+      - POD_NAME=$(kubectl get pods | grep {{.GREP_POD_NAME}} | awk '{print $1}') && kubectl logs -f $POD_NAME
+
+  kubectl-rolling-update:
+    desc: kubectl rolling update
+    aliases: [ru]
+    cmds:
+      - kubectl set image deployment/{{.DEPLOYMENT_NAME}} {{.CONTAINER_NAME}}={{.REGISTRY}}/{{.IMAGE_NAME}}:{{.TAG}}
+      - echo "Rolling update successfully."
+
+  sed-deneme:
+    desc:  change deneme to /
+    aliases: [sed]
+    cmds: 
+      - sed -i -e "s|/deneme/|\/|g" {{.COPY_VOLUME}}/index.html
+  
+  kubectl-copy-deneme:
+    desc: kubectl cp container, sed, index.html
+    aliases: [cpd]
+    cmds:
+      - POD_NAME=$(kubectl get pods | grep {{.GREP_POD_NAME}} | awk '{print $1}') && kubectl cp $POD_NAME:{{.COPY_POD_VOLUME}} {{.COPY_VOLUME}}/index.html
+      - task: sed-deneme
+      - mv {{.COPY_VOLUME}}/index.html {{.COPY_VOLUME}}/index-stable-$(date +%d-%m-%Y-%H-%M).html
