@@ -1,0 +1,127 @@
+version: '3'
+
+tasks:
+  login-registry:
+    # prompt: This is a dangerous command... Do you want to continue?
+    desc: Log in to Docker registry
+    aliases: [login]
+    cmds:
+      - echo "Logging in to {{.REGISTRY}}..."
+      - docker login {{.REGISTRY}}
+    # requires:
+    #   vars: [REGISTRY]
+  
+  docker-volume-create:
+    desc: docker volume create
+    aliases: [volume-create]
+    cmds:
+      - docker volume create --name volume-ansible-playbooks1 --opt type=none --opt device={{.VOLUME}}--opt o=bind
+
+  docker-system-prune:
+    prompt: This is delete command... Do you want to continue?
+    desc: docker prune all system
+    aliases: [prune]
+    cmds:
+      -  sudo docker system prune --all
+    interactive: true
+
+
+  docker-tag:
+    desc: Tag Docker image
+    aliases: [tag]  
+    cmds:
+      - docker tag {{.REGISTRY}}/{{.IMAGE_NAME}}:{{.TAG}} {{.NEW_REGISTRY}}/{{.IMAGE_NAME}}:{{.TAG}}
+      - echo "Docker image tagged successfully."
+
+  stop-contaier:
+    desc: Stop Docker container
+    aliases: [stop]
+    cmds:
+      - docker stop {{.IMAGE_NAME}}
+      - echo "Docker container stopped successfully."
+
+  start-container:
+    desc: Start Docker container
+    aliases: [start]
+    cmds:
+      - docker start {{.IMAGE_NAME}}
+      - echo "Docker container started successfully."
+  
+  docker-commit:
+    desc: Commit docker container
+    aliases: [commit]
+    cmds: 
+      - docker commit {{.CONTAINER_ID}} {{.IMAGE_NAME}}
+
+  docker-cp:
+    desc: Copy file to Docker container
+    aliases: [cp] 
+    cmds:
+      - docker cp {{.IMAGE_NAME}}:{{.CONTAINER_PATH}} {{.VOLUME}} 
+      - echo "File copied successfully."
+
+  run-image:
+    desc: Run Docker image
+    aliases: [run]
+    cmds:
+      - docker run --name {{.IMAGE_NAME}} -d --restart=always -p {{.HOST_PORT}}:{{.CONTAINER_PORT}} -v {{.VOLUME}}:{{.VOLUME}} --privileged {{.REGISTRY}}/{{.IMAGE_NAME}}:{{.TAG}}
+      - echo "Docker image run successfully."
+  
+  debug-docker-image:
+    desc: Run Docker image with debug mode
+    aliases: [debug]
+    cmds:
+      - docker run -it --rm --name debug --privileged \
+       -e NAME=debug-container \
+       -v {{.VOLUME}}:{{.VOLUME}} \
+       {{.REGISTRY}}/{{.DEBUG_IMAGE_NAME}}:{{.DEBUG_TAG}} 
+  
+  build-image:
+    desc: Build Docker image
+    aliases: [build]
+    cmds:
+      -  DOCKER_BUILDKIT=1 docker build -t {{.REGISTRY}}/{{.IMAGE_NAME}}:{{.TAG}} -f {{.DOCKERFILE_NAME}} .
+  
+  pull-image:
+    desc: Pull image
+    aliases: [pull]
+    cmds: 
+      - docker pull {{.REGISTRY}}/{{.IMAGE_NAME}}:{{.TAG}}
+      - echo "Docker image pulled {{.REGISTRY}}/{{.IMAGE_NAME}}:{{.TAG}} successfully."
+
+  push-image:
+    desc: Push Docker image to registry
+    # deps:
+    #   - build-image
+    aliases: [push]
+    cmds:
+      - docker push {{.REGISTRY}}/{{.IMAGE_NAME}}:{{.TAG}}
+      - echo "Docker pushed {{.REGISTRY}}/{{.IMAGE_NAME}}:{{.TAG}} successfully."
+  
+  save-image:
+    desc: Save image tgz format
+    aliases: [save]
+    cmds:
+    - docker save {{.REGISTRY}}/{{.IMAGE_NAME}}:{{.TAG}} | gzip > {{.SAVE_PATH}}/{{.IMAGE_NAME}}_{{.TAG}}.tgz
+    - echo "Docker saved {{.REGISTRY}}/{{.IMAGE_NAME}}:{{.TAG}} successfully."
+
+  load-image:
+    desc: Load image
+    aliases: [load]
+    cmds: 
+    - docker load -i {{.SAVE_PATH}}/{{.IMAGE_NAME}}_{{.TAG}}.tgz
+    - echo "Docker load successfully."
+
+  build-and-push:
+    desc: Build and push Docker image
+    aliases: [build-push]
+    cmds:
+      - task: build-image
+      - task: push-image
+
+  pull-and-save:
+    desc: Build and push Docker image
+    aliases: [pull-save]
+    cmds:
+      - task: pull-image
+      - task: save-image
