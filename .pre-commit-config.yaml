@@ -1,30 +1,40 @@
-# See https://pre-commit.com for more information
-# See https://pre-commit.com/hooks.html for more hooks
+ci:
+  autofix_prs: true
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit suggestions'
+  autoupdate_schedule: monthly
+
 repos:
--   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v3.2.0
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
     hooks:
-    -   id: trailing-whitespace
-    -   id: end-of-file-fixer
-    -   id: check-yaml
-    -   id: check-added-large-files
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-case-conflict
+      - id: detect-private-key
+      - id: detect-aws-credentials
+        args:
+          - --allow-missing-credentials
 
--   repo: https://github.com/psf/black
-    rev: 24.8.0
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.19.1
     hooks:
-    -   id: black
+      - id: pyupgrade
+        name: Upgrade code
 
--   repo: https://github.com/asottile/pyupgrade
-    rev: v3.17.0
+  - repo: https://github.com/google/yapf
+    rev: v0.43.0
     hooks:
-    -   id: pyupgrade
+      - id: yapf
+        name: YAPF formatting
+        args:
+          - -i
 
--   repo: https://github.com/PyCQA/flake8
-    rev: 7.1.1
+  - repo: https://github.com/executablebooks/mdformat
+    rev: 0.7.21
     hooks:
-    -   id: flake8
-
--   repo: https://github.com/PyCQA/isort
-    rev: 5.13.2
-    hooks:
-    -   id: isort
+      - id: mdformat
+        name: MD formatting
+        additional_dependencies:
+          - mdformat-gfm
+          - mdformat-black
+        exclude: 'docs/.*\.md'
