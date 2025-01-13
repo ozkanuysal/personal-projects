@@ -170,7 +170,7 @@ services:
 volumes:
   spark_data:
 
-#network for Kafka
+
 networks:
   kafka_network:
     driver: bridge
