@@ -1,18 +1,16 @@
-#!/bin/bash
+#!/usr/bin/env bash
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+set -euo pipefail
 
-set -e
-
-if [ -e "/opt/airflow/requirements.txt" ]; then
-    $(command -v pip) installl --user -r requirements.txt
+if [ -x "$(command -v docker-compose)" ]; then
+    dc=docker-compose
+else
+    dc="docker compose"
 fi
 
-if [ ! -f "/opt/airflow/airflow.db" ]; then
-    airflow db init &&
-    airflow users create \
-        --username admin \
-        --firstname admin \
-        --lastname admin \
-        --role Admin \
-        --email
+export COMPOSE_FILE="${PROJECT_DIR}/docker-compose.yml"
+if [ $# -gt 0 ]; then
+    exec $dc run --rm airflow_webserver "${@}"
+else
+    exec $dc run --rm airflow_webserver
 fi
-
