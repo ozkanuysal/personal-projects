@@ -1,0 +1,36 @@
+[default]
+DATABASE_URL = "postgresql+psycopg2://postgres:postgres@localhost:5432/postgres"
+SECRET_KEY = "typass123!"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+MINIO_HOST = "localhost:9000"
+MINIO_ACCESS_KEY = "MINIO_USER"
+MINIO_SECRET_KEY = "MINIO_PASSWORD"
+MINIO_BUCKET_NAME = "model-registry"
+POSTGRES_USER = "postgres"
+POSTGRES_PASSWORD = "postgres"
+POSTGRES_DB = "postgres"
+GF_SECURITY_ADMIN_USER = "admin"
+GF_SECURITY_ADMIN_PASSWORD = "admin"
+CELERY_BROKER_URL = "redis://localhost:6379/0"
+CELERY_RESULT_BACKEND = "redis://localhost:6379/0"
+CELERY_BEAT_SCHEDULE = "minute"
+
+
+[docker]
+DATABASE_URL = "postgresql+psycopg2://postgres:postgres@postgres:5432/postgres"
+SECRET_KEY = "typass123!"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+MINIO_HOST = "minio:9000"
+MINIO_ACCESS_KEY = "MINIO_USER"
+MINIO_SECRET_KEY = "MINIO_PASSWORD"
+MINIO_BUCKET_NAME = "model-registry"
+POSTGRES_USER = "postgres"
+POSTGRES_PASSWORD = "postgres"
+POSTGRES_DB = "postgres"
+GF_SECURITY_ADMIN_USER = "admin"
+GF_SECURITY_ADMIN_PASSWORD = "admin"
+CELERY_BROKER_URL = "redis://redis:6379/0"
+CELERY_RESULT_BACKEND = "redis://redis:6379/0"
+CELERY_BEAT_SCHEDULE = "monthly"
