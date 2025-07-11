@@ -1,0 +1,4 @@
+[default]
+aws_access_key_id = rootuser
+aws_secret_access_key = rootpass123
+endpoint_url = http://localhost:9000
