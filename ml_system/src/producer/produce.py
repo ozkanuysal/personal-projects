@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 from time import sleep
+from typing import List, Optional
 
 import pandas as pd
 from dotenv import load_dotenv
@@ -11,197 +12,182 @@ from schema_registry.client import SchemaRegistryClient, schema
 
 load_dotenv()
 
-OUTPUT_TOPICS = os.getenv("KAFKA_OUTPUT_TOPICS", "tracking.raw_user_behavior")
-BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "broker:9092")
-SCHEMA_REGISTRY_SERVER = os.getenv(
+DEFAULT_OUTPUT_TOPICS = os.getenv("KAFKA_OUTPUT_TOPICS", "tracking.raw_user_behavior")
+DEFAULT_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "broker:9092")
+DEFAULT_SCHEMA_REGISTRY_SERVER = os.getenv(
     "KAFKA_SCHEMA_REGISTRY_URL", "http://schema-registry:8081"
 )
-
-parser = argparse.ArgumentParser()
-parser.add_argument(
-    "-m",
-    "--mode",
-    default="setup",
-    choices=["setup", "teardown"],
-    help="Whether to setup or teardown a Kafka topic with driver stats events. Setup will teardown before beginning emitting events.",
-)
-parser.add_argument(
-    "-b",
-    "--bootstrap_servers",
-    default=BOOTSTRAP_SERVERS,
-    help="Where the bootstrap server is",
-)
-parser.add_argument(
-    "-s",
-    "--schema_registry_server",
-    default=SCHEMA_REGISTRY_SERVER,
-    help="Where to host schema",
-)
-parser.add_argument(
-    "-c",
-    "--avro_schemas_path",
-    default=os.path.join(os.path.dirname(__file__), "avro_schemas"),
-    help="Folder containing all generated avro schemas",
-)
-
-args = parser.parse_args()
-
-# Define some constants
 NUM_DEVICES = 1
 
 
-def create_topic(admin, topic_name):
-    # Create topic if not exists
-    try:
-        # Create Kafka topic
-        topic = NewTopic(name=topic_name, num_partitions=12, replication_factor=1)
-        admin.create_topics([topic])
-        print(f"A new topic {topic_name} has been created!")
-    except Exception:
-        print(f"Topic {topic_name} already exists. Skipping creation!")
-        pass
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-m", "--mode", default="setup", choices=["setup", "teardown"],
+        help="Whether to setup or teardown a Kafka topic with driver stats events."
+    )
+    parser.add_argument(
+        "-b", "--bootstrap_servers", default=DEFAULT_BOOTSTRAP_SERVERS,
+        help="Where the bootstrap server is"
+    )
+    parser.add_argument(
+        "-s", "--schema_registry_server", default=DEFAULT_SCHEMA_REGISTRY_SERVER,
+        help="Where to host schema"
+    )
+    parser.add_argument(
+        "-c", "--avro_schemas_path",
+        default=os.path.join(os.path.dirname(__file__), "avro_schemas"),
+        help="Folder containing all generated avro schemas"
+    )
+    return parser.parse_args()
 
 
-def create_streams(servers, avro_schemas_path, schema_registry_client):
-    producer = None
-    admin = None
+class KafkaManager:
+    def __init__(self, servers: List[str]):
+        self.servers = servers
+        self.producer: Optional[KafkaProducer] = None
+        self.admin: Optional[KafkaAdminClient] = None
 
-    # Add retry logic for Kafka connection
-    for _ in range(10):
+    def connect(self, retries: int = 10, delay: int = 10):
+        for attempt in range(retries):
+            try:
+                self.producer = KafkaProducer(
+                    bootstrap_servers=self.servers,
+                    value_serializer=str.encode,
+                    batch_size=16384,
+                    buffer_memory=33554432,
+                    compression_type="gzip",
+                    linger_ms=50,
+                    acks=1,
+                )
+                self.admin = KafkaAdminClient(bootstrap_servers=self.servers)
+                print("SUCCESS: Connected to Kafka admin and producer")
+                return
+            except Exception as e:
+                print(f"Attempt {attempt+1}: Kafka connection failed: {e}")
+                sleep(delay)
+        raise RuntimeError("Failed to connect to Kafka after retries")
+
+    def create_topic(self, topic_name: str):
         try:
-            producer = KafkaProducer(
-                bootstrap_servers=servers,
-                value_serializer=str.encode,  # Simple string encoding
-                batch_size=16384,  # Increase batch size (default 16384)
-                buffer_memory=33554432,  # 32MB buffer memory
-                compression_type="gzip",  # Enable compression
-                linger_ms=50,  # Wait up to 50ms to batch messages
-                acks=1,  # Only wait for leader acknowledgment
-            )
-            admin = KafkaAdminClient(bootstrap_servers=servers)
-            print("SUCCESS: instantiated Kafka admin and producer")
-            break
-        except Exception as e:
-            print(
-                f"Trying to instantiate admin and producer with bootstrap servers {servers} with error {e}"
-            )
-            sleep(10)
-            pass
+            topic = NewTopic(name=topic_name, num_partitions=12, replication_factor=1)
+            self.admin.create_topics([topic])
+            print(f"Created topic: {topic_name}")
+        except Exception:
+            print(f"Topic {topic_name} already exists. Skipping creation.")
 
-    # Add retry logic for schema registry
-    for _ in range(10):
+    def delete_topic(self, topic_name: str):
         try:
-            schema_registry_client.get_subjects()
-            print("SUCCESS: connected to schema registry")
-            break
+            self.admin.delete_topics([topic_name])
+            print(f"Deleted topic: {topic_name}")
         except Exception as e:
-            print(
-                f"Failed to connect to schema registry: {e}. Retrying in 10 seconds..."
-            )
-            sleep(10)
-    else:
-        raise Exception("Failed to connect to schema registry after 10 attempts")
+            print(f"Failed to delete topic {topic_name}: {e}")
 
-    # Load the Avro schema
-    avro_schema_path = f"{avro_schemas_path}/ecommerce_events.avsc"
+    def send_records(self, topic_name: str, records: List[str]):
+        print("Starting to send records...")
+        for i, record in enumerate(records):
+            self.producer.send(topic_name, value=record)
+            if i % 1000 == 0:
+                print(f"Sent {i} records")
+            sleep(0.05)
+        self.producer.flush()
+        print(f"Finished sending {len(records)} records")
+
+
+class SchemaRegistryManager:
+    def __init__(self, url: str):
+        self.client = SchemaRegistryClient(url=url)
+
+    def connect(self, retries: int = 10, delay: int = 10):
+        for attempt in range(retries):
+            try:
+                self.client.get_subjects()
+                print("SUCCESS: Connected to schema registry")
+                return
+            except Exception as e:
+                print(f"Attempt {attempt+1}: Schema registry connection failed: {e}")
+                sleep(delay)
+        raise RuntimeError("Failed to connect to schema registry after retries")
+
+    def register_schema(self, subject: str, avro_schema: dict) -> int:
+        avro_schema_obj = schema.AvroSchema(avro_schema)
+        version_info = self.client.check_version(subject, avro_schema_obj)
+        if version_info is not None:
+            print(f"Found existing schema ID: {version_info.schema_id}. Skipping creation!")
+            return version_info.schema_id
+        schema_id = self.client.register(subject, avro_schema_obj)
+        print(f"Registered new schema with ID: {schema_id}")
+        return schema_id
+
+
+def load_avro_schema(avro_schemas_path: str, schema_file: str = "ecommerce_events.avsc") -> dict:
+    avro_schema_path = os.path.join(avro_schemas_path, schema_file)
     with open(avro_schema_path, "r") as f:
-        parsed_avro_schema = json.loads(f.read())
+        return json.loads(f.read())
 
-    # Load data and prepare for batch processing
+
+def load_and_format_records(avro_schema: dict, parquet_path: str = "data/sample.parquet") -> List[str]:
     try:
-        df = pd.read_parquet("data/sample.parquet")
+        df = pd.read_parquet(parquet_path)
         print(f"Loaded {len(df)} records from parquet file")
 
-        # Pre-format all records in parallel
         def format_record(row):
-            index = row.name  # Get the index from the row
+            index = row.name
             record = {
                 "event_time": str(row["event_time"]),
                 "event_type": str(row["event_type"]),
                 "product_id": int(row["product_id"]),
                 "category_id": int(row["category_id"]),
-                "category_code": str(row["category_code"])
-                if pd.notnull(row["category_code"])
-                else None,
+                "category_code": str(row["category_code"]) if pd.notnull(row["category_code"]) else None,
                 "brand": str(row["brand"]) if pd.notnull(row["brand"]) else None,
                 "price": float(row["price"]) if index % 10 != 0 else -100,
                 "user_id": int(row["user_id"]),
                 "user_session": str(row["user_session"]),
             }
-
             formatted_record = {
-                "schema": {"type": "struct", "fields": parsed_avro_schema["fields"]},
+                "schema": {"type": "struct", "fields": avro_schema["fields"]},
                 "payload": record,
             }
             return json.dumps(formatted_record)
 
-        # Process records in parallel using all available CPU cores
         print("Formatting records in parallel...")
         records = df.apply(format_record, axis=1).tolist()
         print(f"Formatted {len(records)} records")
-
+        return records
     except Exception as e:
         print(f"Error loading/processing parquet file: {e}")
-        return
-
-    # Get topic name and create it if needed
-    topic_name = OUTPUT_TOPICS
-    create_topic(admin, topic_name=topic_name)
-
-    # Register schema if needed
-    schema_version_info = schema_registry_client.check_version(
-        f"{topic_name}-schema", schema.AvroSchema(parsed_avro_schema)
-    )
-    if schema_version_info is not None:
-        schema_id = schema_version_info.schema_id
-        print(f"Found existing schema ID: {schema_id}. Skipping creation!")
-    else:
-        schema_id = schema_registry_client.register(
-            f"{topic_name}-schema", schema.AvroSchema(parsed_avro_schema)
-        )
-        print(f"Registered new schema with ID: {schema_id}")
-
-    # Batch send records
-    print("Starting to send records...")
-    for i, record in enumerate(records):
-        producer.send(topic_name, value=record)
-
-        # Only print progress every 1000 records
-        if i % 1000 == 0:
-            print(f"Sent {i} records")
-
-        sleep(0.05)
-
-    # Make sure all messages are sent
-    producer.flush()
-    print(f"Finished sending {len(records)} records")
+        return []
 
 
-def teardown_stream(topic_name, servers=["localhost:9092"]):
-    try:
-        admin = KafkaAdminClient(bootstrap_servers=servers)
-        print(admin.delete_topics([topic_name]))
-        print(f"Topic {topic_name} deleted")
-    except Exception as e:
-        print(str(e))
-        pass
+def main():
+    args = parse_args()
+    mode = args.mode
+    servers = [args.bootstrap_servers]
+    schema_registry_server = args.schema_registry_server
+    avro_schemas_path = args.avro_schemas_path
+    topic_name = DEFAULT_OUTPUT_TOPICS
 
+    kafka_manager = KafkaManager(servers)
+    kafka_manager.connect()
 
-if __name__ == "__main__":
-    parsed_args = vars(args)
-    mode = parsed_args["mode"]
-    servers = parsed_args["bootstrap_servers"]
-    schema_registry_server = parsed_args["schema_registry_server"]
+    schema_manager = SchemaRegistryManager(schema_registry_server)
+    schema_manager.connect()
 
-    # Tear down all previous streams
+    # Always teardown before setup for a clean state
     print("Tearing down all existing topics!")
     for device_id in range(NUM_DEVICES):
-        try:
-            teardown_stream(OUTPUT_TOPICS, [servers])
-        except Exception as e:
-            print(f"Topic device_{device_id} does not exist. Skipping...! {e}")
+        kafka_manager.delete_topic(topic_name)
 
     if mode == "setup":
-        avro_schemas_path = parsed_args["avro_schemas_path"]
-        schema_registry_client = SchemaRegistryClient(url=schema_registry_server)
-        create_streams([servers], avro_schemas_path, schema_registry_client)
+        avro_schema = load_avro_schema(avro_schemas_path)
+        records = load_and_format_records(avro_schema)
+        if not records:
+            print("No records to send. Exiting.")
+            return
+
+        kafka_manager.create_topic(topic_name)
+        schema_manager.register_schema(f"{topic_name}-value", avro_schema)
+        kafka_manager.send_records(topic_name, records)
+    elif mode == "teardown":
+        kafka_manager.delete_topic(topic_name)
+        print("Teardown complete. All topics deleted.") 
